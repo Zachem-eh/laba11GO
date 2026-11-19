@@ -109,6 +109,7 @@ func main() {
 		fmt.Println("9 - Список категорий")
 		fmt.Println("10 - Добавить категорию")
 		fmt.Println("11 - Удалить категорию")
+		fmt.Println("12 - Топ товаров по выручке (с фильтром по цене)")
 		a, err := readInt(reader, "Выберите пункт из меню управления:")
 		if err != nil {
 			fmt.Println(err)
@@ -140,15 +141,19 @@ func main() {
 			prodID, err := readInt(reader, "Введите ID товара для покупки:")
 			if err != nil {
 				fmt.Println("Ошибка ввода ID товара", err)
-				continue
+				break // выходим из switch, а не из итерации, чтобы ниже сработал cancel()
 			}
 			qty, err := readInt(reader, "Введите количество:")
 			if err != nil {
 				fmt.Println("Ошибка ввода количества товара", err)
-				continue
+				break
 			}
+			// Контекст для транзакции создаём ПОСЛЕ ввода: иначе, пока человек печатает,
+			// истекают 15 секунд общего ctx и продажа падает с "context deadline exceeded"
+			saleCtx, saleCancel := newDBContext()
 			// Вызываем нашу функцию транзакции из файла sale.go
-			err = ProcessSale(ctx, db, int64(prodID), qty)
+			err = ProcessSale(saleCtx, db, int64(prodID), qty)
+			saleCancel()
 			if err != nil {
 				fmt.Println("Ошибка оформления продажи:", err)
 			} else {
@@ -170,6 +175,8 @@ func main() {
 			err = handleCreateCategory(reader, db)
 		case 11:
 			err = handleDeleteCategory(reader, db)
+		case 12:
+			err = handleTopProducts(reader, db)
 		default:
 			fmt.Println("Нет такого пункта меню!")
 		}
