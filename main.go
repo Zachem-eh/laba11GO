@@ -18,7 +18,7 @@ import (
 )
 
 // функция для очистки экрана (работает и на Windows, и на macOS/Linux)
-func clear_screen() {
+func clearScreen() {
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
 		cmd = exec.Command("cmd", "/c", "cls")
@@ -59,7 +59,7 @@ type Product struct {
 }
 
 func main() {
-	clear_screen()
+	clearScreen()
 	db, err := sql.Open("sqlite", "file:ProductsDB.db")
 	if err != nil {
 		log.Fatalf("Ошибка при открытии БД: %v", err)
@@ -68,7 +68,7 @@ func main() {
 
 	db.SetMaxOpenConns(1)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
 	if err := db.PingContext(ctx); err != nil {
@@ -93,20 +93,28 @@ func main() {
 		if _, err := reader.ReadString('\n'); err != nil {
 			return // ввод закончился (Ctrl+D) — выходим, а не крутимся вечно
 		}
-		clear_screen()
+		clearScreen()
 
 		fmt.Println("Меню команд:")
 		fmt.Println("0 - Завершить работу")
+		fmt.Println("1 - Вывести все товары с названием их категорий")
 		a, err := readInt(reader, "Выберите пункт из меню управления:")
 		if err != nil {
 			fmt.Println(err)
 			continue
 		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		switch a {
 		case 0:
 			return
+		case 1:
+			if err := GetAllProducts(ctx, db); err != nil {
+				fmt.Printf("Ошибка: %v\n", err)
+			}
 		default:
 			fmt.Println("Нет такого пункта меню!")
 		}
+		cancel()
 	}
 }
