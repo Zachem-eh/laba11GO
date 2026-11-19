@@ -98,6 +98,8 @@ func main() {
 		fmt.Println("Меню команд:")
 		fmt.Println("0 - Завершить работу")
 		fmt.Println("1 - Вывести все товары с названием их категорий")
+		fmt.Println("2 - Вывести выручку по категориям товаров")
+		fmt.Println("3 - Оформление продажи(реализация транзакции)")
 		a, err := readInt(reader, "Выберите пункт из меню управления:")
 		if err != nil {
 			fmt.Println(err)
@@ -112,9 +114,87 @@ func main() {
 			if err := GetAllProducts(ctx, db); err != nil {
 				fmt.Printf("Ошибка: %v\n", err)
 			}
+		case 2:
+			fmt.Println("Выручка по категориям:")
+			revenues, err := GetRevenueByCategory(ctx, db)
+			if err != nil {
+				fmt.Println("Ошибка:", err)
+			} else if len(revenues) == 0 {
+				fmt.Println("Продаж пока не было.")
+			} else {
+				for _, r := range revenues {
+					fmt.Printf("Категория: %-15s | Продаж: %-3d | Выручка: %-8.2f | Средний чек: %.2f\n",
+						r.CategoryName, r.TotalSalesCount, r.TotalRevenue, r.AvgRevenue)
+				}
+			}
+
+		case 3:
+			printAvailableProducts(ctx, db)
+			prodID, err := readInt(reader, "Введите ID товара для покупки:")
+			if err != nil {
+				fmt.Println("Ошибка ввода ID товара", err)
+				continue
+			}
+			qty, err := readInt(reader, "Введите количество:")
+			if err != nil {
+				fmt.Println("Ошибка ввода количества товара", err)
+				continue
+			}
+			// Вызываем нашу функцию транзакции из файла sale.go
+			err = ProcessSale(ctx, db, int64(prodID), qty)
+			if err != nil {
+				fmt.Println("Ошибка оформления продажи:", err)
+			} else {
+				fmt.Println("Товар успешно добавлен в продажи, остаток на складе обновлен!")
+			}
+
 		default:
 			fmt.Println("Нет такого пункта меню!")
 		}
 		cancel()
+	}
+}
+func printAvailableProducts(ctx context.Context, db *sql.DB) {
+	fmt.Println("Доступные товары")
+	rows, err := db.QueryContext(ctx, "SELECT id, name, price, available_count FROM products ORDER BY id")
+	if err != nil {
+		fmt.Println("Ошибка получения списка товаров:", err)
+		return
+	}
+	defer rows.Close() // Обязательно закрываем rows
+
+	fmt.Printf("%-5s | %-25s | %-10s | %-10s\n", "ID", "Название", "Цена", "Остаток")
+	fmt.Println(strings.Repeat("-", 55))
+	for rows.Next() {
+		var id int64
+		var name string
+		var price float64
+		var count int
+		if err := rows.Scan(&id, &name, &price, &count); err != nil {
+			continue
+		}
+		fmt.Printf("%-5d | %-25s | %-10.2f | %-10d\n", id, name, price, count)
+	}
+}
+
+// printAvailableCategories выводит список категорий
+func printAvailableCategories(ctx context.Context, db *sql.DB) {
+	fmt.Println("Доступные категории")
+	rows, err := db.QueryContext(ctx, "SELECT id, name FROM categories ORDER BY id")
+	if err != nil {
+		fmt.Println("Ошибка получения списка категорий:", err)
+		return
+	}
+	defer rows.Close()
+
+	fmt.Printf("%-5s | %-25s\n", "ID", "Название")
+	fmt.Println(strings.Repeat("-", 35))
+	for rows.Next() {
+		var id int64
+		var name string
+		if err := rows.Scan(&id, &name); err != nil {
+			continue
+		}
+		fmt.Printf("%-5d | %-25s\n", id, name)
 	}
 }
