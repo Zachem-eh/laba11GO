@@ -60,7 +60,8 @@ type Product struct {
 
 func main() {
 	clearScreen()
-	db, err := sql.Open("sqlite", "file:ProductsDB.db")
+	// _pragma=foreign_keys(1) включает проверку внешних ключей (в SQLite она по умолчанию выключена)
+	db, err := sql.Open("sqlite", "file:ProductsDB.db?_pragma=foreign_keys(1)")
 	if err != nil {
 		log.Fatalf("Ошибка при открытии БД: %v", err)
 	}
@@ -100,6 +101,14 @@ func main() {
 		fmt.Println("1 - Вывести все товары с названием их категорий")
 		fmt.Println("2 - Вывести выручку по категориям товаров")
 		fmt.Println("3 - Оформление продажи(реализация транзакции)")
+		fmt.Println("4 - Найти товар по ID")
+		fmt.Println("5 - Список товаров с фильтрами и по страницам")
+		fmt.Println("6 - Добавить товар")
+		fmt.Println("7 - Изменить товар")
+		fmt.Println("8 - Удалить товар")
+		fmt.Println("9 - Список категорий")
+		fmt.Println("10 - Добавить категорию")
+		fmt.Println("11 - Удалить категорию")
 		a, err := readInt(reader, "Выберите пункт из меню управления:")
 		if err != nil {
 			fmt.Println(err)
@@ -111,9 +120,7 @@ func main() {
 		case 0:
 			return
 		case 1:
-			if err := GetAllProducts(ctx, db); err != nil {
-				fmt.Printf("Ошибка: %v\n", err)
-			}
+			err = GetAllProducts(ctx, db)
 		case 2:
 			fmt.Println("Выручка по категориям:")
 			revenues, err := GetRevenueByCategory(ctx, db)
@@ -147,11 +154,29 @@ func main() {
 			} else {
 				fmt.Println("Товар успешно добавлен в продажи, остаток на складе обновлен!")
 			}
-
+		case 4:
+			err = handleGetProduct(reader, db)
+		case 5:
+			err = handleListProducts(reader, db)
+		case 6:
+			err = handleCreateProduct(reader, db)
+		case 7:
+			err = handleUpdateProduct(reader, db)
+		case 8:
+			err = handleDeleteProduct(reader, db)
+		case 9:
+			err = handleListCategories(db)
+		case 10:
+			err = handleCreateCategory(reader, db)
+		case 11:
+			err = handleDeleteCategory(reader, db)
 		default:
 			fmt.Println("Нет такого пункта меню!")
 		}
 		cancel()
+		if err != nil {
+			fmt.Printf("Ошибка: %v\n", err)
+		}
 	}
 }
 func printAvailableProducts(ctx context.Context, db *sql.DB) {
