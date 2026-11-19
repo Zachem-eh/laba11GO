@@ -1,13 +1,17 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite" // Анонимный импорт драйвера
@@ -23,6 +27,20 @@ func clear_screen() {
 	}
 	cmd.Stdout = os.Stdout
 	cmd.Run()
+}
+
+// readInt читает целое число (пункт меню, ID)
+func readInt(reader *bufio.Reader, prompt string) (int, error) {
+	fmt.Println(prompt)
+	input, err := reader.ReadString('\n')
+	if err != nil {
+		return 0, fmt.Errorf("не удалось прочитать ввод: %w", err)
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(input))
+	if err != nil {
+		return 0, errors.New("нужно ввести целое число")
+	}
+	return n, nil
 }
 
 type Category struct {
@@ -56,7 +74,7 @@ func main() {
 	if err := db.PingContext(ctx); err != nil {
 		log.Fatalf("Нет связи с БД: %v", err)
 	}
-	fmt.Println("Успешное подключение к SQLite (файл lab.db)")
+	fmt.Println("Успешное подключение к SQLite (файл ProductsDB.db)")
 
 	if err := runMigrations(ctx, db); err != nil {
 		log.Fatalf("Ошибка миграции: %v", err)
@@ -67,4 +85,28 @@ func main() {
 	}
 
 	fmt.Println("Инициализация завершена. База данных готова к работе!")
+
+	reader := bufio.NewReader(os.Stdin)
+
+	for {
+		fmt.Println("\nДля продолжения работы с БД нажмите Enter...")
+		if _, err := reader.ReadString('\n'); err != nil {
+			return // ввод закончился (Ctrl+D) — выходим, а не крутимся вечно
+		}
+		clear_screen()
+
+		fmt.Println("Меню команд:")
+		fmt.Println("0 - Завершить работу")
+		a, err := readInt(reader, "Выберите пункт из меню управления:")
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+		switch a {
+		case 0:
+			return
+		default:
+			fmt.Println("Нет такого пункта меню!")
+		}
+	}
 }
